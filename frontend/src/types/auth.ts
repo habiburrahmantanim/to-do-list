@@ -1,24 +1,32 @@
 export interface User {
-  id: string;
-  name: string;
+  id: number;
+  username: string;
   email: string;
-  avatar?: string;
-  createdAt: string;
+  first_name: string;
+  last_name: string;
+  bio?: string;
+  profile_picture?: string;
 }
 
 export interface AuthResponse {
+  message: string;
   access: string;
+  refresh: string;
   user: User;
 }
 
 export interface RegisterRequest {
-  name: string;
+  username?: string;
   email: string;
   password: string;
+  password_confirm?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 export interface LoginRequest {
-  email: string;
+  username?: string;
+  email?: string;
   password: string;
 }
 
@@ -29,4 +37,9 @@ export interface RefreshTokenResponse {
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
+}
+
+export interface GoogleAuthRequest {
+  id_token?: string;
+  credential?: string;
 }

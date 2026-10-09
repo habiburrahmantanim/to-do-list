@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Eye, EyeOff, Globe, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { apiBaseUrl } from "@/config/env";
+import { GoogleOAuthButton } from "@/components/auth/GoogleOAuthButton";
 import {
   Card,
   CardContent,
@@ -38,6 +38,7 @@ export function RegisterForm() {
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      username: "",
       name: "",
       email: "",
       password: "",
@@ -47,24 +48,43 @@ export function RegisterForm() {
 
   const onSubmit = async (values: RegisterFormValues) => {
     try {
-      const { confirmPassword: _confirmPassword, ...payload } = values;
-      await register(payload);
-      toast.success("Account created successfully.");
+      const trimmedName = (values.name || "").trim();
+      let firstName = "";
+      let lastName = "";
+      if (trimmedName) {
+        const parts = trimmedName.split(/\s+/);
+        firstName = parts[0] || "";
+        lastName = parts.slice(1).join(" ") || "";
+      }
+
+      await register({
+        username: values.username?.trim() || undefined,
+        email: values.email.trim(),
+        password: values.password,
+        password_confirm: values.confirmPassword,
+        first_name: firstName,
+        last_name: lastName,
+      });
+      toast.success("Account created successfully. Please sign in.");
       router.push("/login");
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as { message?: string; fieldErrors?: Record<string, string[]> };
+      if (err?.fieldErrors) {
+        for (const [key, msgs] of Object.entries(err.fieldErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            if (key === "username" || key === "email" || key === "password") {
+              setError(key as any, { message: msgs[0] });
+            } else if (key === "password_confirm") {
+              setError("confirmPassword", { message: msgs[0] });
+            }
+          }
+        }
+      }
       const message =
         error instanceof Error ? error.message : "Unable to create account.";
       setError("root", { message });
       toast.error(message);
     }
-  };
-
-  const handleGoogleAuth = () => {
-    const googleAuthUrl = apiBaseUrl
-      ? `${apiBaseUrl.replace(/\/$/, "")}/api/auth/google/`
-      : "/api/auth/google/";
-
-    window.location.href = googleAuthUrl;
   };
 
   return (
@@ -81,6 +101,29 @@ export function RegisterForm() {
           className="space-y-4"
           noValidate
         >
+          <div className="space-y-2">
+            <label
+              htmlFor="username"
+              className="text-sm font-medium text-slate-700 dark:text-slate-200"
+            >
+              Username{" "}
+              <span className="text-xs text-slate-400 font-normal">
+                (optional)
+              </span>
+            </label>
+            <Input
+              id="username"
+              autoComplete="username"
+              placeholder="e.g. johndoe"
+              {...formRegister("username")}
+            />
+            {errors.username ? (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {errors.username.message}
+              </p>
+            ) : null}
+          </div>
+
           <div className="space-y-2">
             <label
               htmlFor="name"
@@ -216,15 +259,7 @@ export function RegisterForm() {
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={handleGoogleAuth}
-        >
-          <Globe className="mr-2 h-4 w-4" />
-          Continue with Google
-        </Button>
+        <GoogleOAuthButton />
 
         <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
           Already have an account?{" "}

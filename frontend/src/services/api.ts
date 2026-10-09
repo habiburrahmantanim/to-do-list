@@ -2,29 +2,41 @@ import axios, { AxiosError, AxiosRequestConfig } from "axios";
 
 import { apiBaseUrl } from "@/config/env";
 
-export interface ApiErrorPayload {
-  message: string;
+export class ApiError extends Error {
   fieldErrors?: Record<string, string[]>;
   status?: number;
+
+  constructor(
+    message: string,
+    fieldErrors?: Record<string, string[]>,
+    status?: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.fieldErrors = fieldErrors;
+    this.status = status;
+  }
 }
 
-interface ErrorResponseShape {
-  message?: string;
-  detail?: string;
-  non_field_errors?: string[];
-  field_errors?: Record<string, string[]>;
-  fieldErrors?: Record<string, string[]>;
-  errors?: Record<string, string[]>;
-}
+export type ApiErrorPayload = ApiError;
+
+const TOKEN_KEY = "taskflow_access_token";
+const REFRESH_KEY = "taskflow_refresh_token";
 
 let accessToken: string | null = null;
+let refreshTokenValue: string | null = null;
 
 if (typeof window !== "undefined") {
-  accessToken = window.localStorage.getItem("taskflow_access_token");
+  accessToken = window.localStorage.getItem(TOKEN_KEY);
+  refreshTokenValue = window.localStorage.getItem(REFRESH_KEY);
 }
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+export function getRefreshToken(): string | null {
+  return refreshTokenValue;
 }
 
 export function setAccessToken(token: string | null): void {
@@ -32,50 +44,90 @@ export function setAccessToken(token: string | null): void {
 
   if (typeof window !== "undefined") {
     if (token) {
-      window.localStorage.setItem("taskflow_access_token", token);
+      window.localStorage.setItem(TOKEN_KEY, token);
       return;
     }
 
-    window.localStorage.removeItem("taskflow_access_token");
+    window.localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export function setRefreshToken(token: string | null): void {
+  refreshTokenValue = token;
+
+  if (typeof window !== "undefined") {
+    if (token) {
+      window.localStorage.setItem(REFRESH_KEY, token);
+      return;
+    }
+
+    window.localStorage.removeItem(REFRESH_KEY);
   }
 }
 
 export function clearAuthSession(): void {
   setAccessToken(null);
+  setRefreshToken(null);
 }
 
-export function normalizeApiError(error: unknown): ApiErrorPayload {
+export function normalizeApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
-    const payload = (error.response?.data ?? {}) as ErrorResponseShape;
-    const fieldErrors =
-      payload.field_errors ?? payload.fieldErrors ?? payload.errors;
+    const rawData = error.response?.data;
+    let fieldErrors: Record<string, string[]> | undefined;
+    let message: string | undefined;
 
-    const fallbackMessage =
-      payload.detail ??
-      (Array.isArray(payload.non_field_errors)
-        ? payload.non_field_errors.join(" ")
-        : undefined) ??
-      payload.message ??
-      "Something went wrong. Please try again.";
+    if (rawData && typeof rawData === "object" && !Array.isArray(rawData)) {
+      const payload = rawData as Record<string, unknown>;
 
-    return {
-      message: fallbackMessage,
+      if (typeof payload.detail === "string") {
+        message = payload.detail;
+      } else if (
+        Array.isArray(payload.non_field_errors) &&
+        payload.non_field_errors.length > 0
+      ) {
+        message = payload.non_field_errors.join(" ");
+      } else if (typeof payload.message === "string") {
+        message = payload.message;
+      }
+
+      const collectedErrors: Record<string, string[]> = {};
+      for (const [key, val] of Object.entries(payload)) {
+        if (key === "detail" || key === "message") continue;
+        if (Array.isArray(val)) {
+          collectedErrors[key] = val.map(String);
+        } else if (typeof val === "string") {
+          collectedErrors[key] = [val];
+        }
+      }
+
+      if (Object.keys(collectedErrors).length > 0) {
+        fieldErrors = collectedErrors;
+        if (!message) {
+          const firstKey = Object.keys(collectedErrors)[0];
+          message = `${firstKey}: ${collectedErrors[firstKey][0]}`;
+        }
+      }
+    } else if (typeof rawData === "string") {
+      message = rawData;
+    }
+
+    return new ApiError(
+      message || error.message || "Something went wrong. Please try again.",
       fieldErrors,
-      status: error.response?.status,
-    };
+      error.response?.status,
+    );
   }
 
   if (error instanceof Error) {
-    return { message: error.message };
+    return new ApiError(error.message);
   }
 
-  return { message: "Something went wrong. Please try again." };
+  return new ApiError("Something went wrong. Please try again.");
 }
 
 export const api = axios.create({
   baseURL: apiBaseUrl || "/",
   timeout: 20000,
-  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -136,9 +188,16 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
+      const currentRefresh = getRefreshToken();
+      if (!currentRefresh) {
+        clearAuthSession();
+        return Promise.reject(normalizeApiError(error));
+      }
+
       try {
         const { data } = await api.post<{ access: string }>(
           "/api/auth/refresh/",
+          { refresh: currentRefresh },
         );
         const nextToken = data.access;
         setAccessToken(nextToken);

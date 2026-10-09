@@ -78,13 +78,15 @@ export function Navbar() {
 
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-800 dark:bg-slate-900">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100">
-              {user?.name?.charAt(0)?.toUpperCase() ?? (
+              {user ? (
+                ([user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "U").charAt(0).toUpperCase()
+              ) : (
                 <UserCircle2 className="h-4 w-4" />
               )}
             </div>
             <div className="hidden text-left sm:block">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                {user?.name ?? "User"}
+                {user ? ([user.first_name, user.last_name].filter(Boolean).join(" ") || user.username) : "User"}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {user?.email ?? "member@taskflow.dev"}

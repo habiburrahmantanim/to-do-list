@@ -13,17 +13,19 @@ import {
 import {
   getCurrentUser,
   login,
+  loginWithGoogle as loginWithGoogleService,
   logout,
   register,
 } from "@/services/auth.service";
 import { getAccessToken, setAccessToken } from "@/services/api";
-import type { LoginRequest, RegisterRequest, User } from "@/types/auth";
+import type { GoogleAuthRequest, LoginRequest, RegisterRequest, User } from "@/types/auth";
 
 interface AuthContextValue {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (payload: LoginRequest) => Promise<void>;
+  loginWithGoogle: (payload: GoogleAuthRequest) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -60,9 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(response.user);
   }, []);
 
-  const handleRegister = useCallback(async (payload: RegisterRequest) => {
-    const response = await register(payload);
+  const handleGoogleLogin = useCallback(async (payload: GoogleAuthRequest) => {
+    const response = await loginWithGoogleService(payload);
     setUser(response.user);
+  }, []);
+
+  const handleRegister = useCallback(async (payload: RegisterRequest) => {
+    await register(payload);
+    // Registration doesn't auto-login in our backend, so don't set user
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -83,11 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user),
       isLoading,
       login: handleLogin,
+      loginWithGoogle: handleGoogleLogin,
       register: handleRegister,
       logout: handleLogout,
       refreshUser,
     }),
-    [handleLogin, handleLogout, handleRegister, isLoading, refreshUser, user],
+    [handleLogin, handleGoogleLogin, handleLogout, handleRegister, isLoading, refreshUser, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

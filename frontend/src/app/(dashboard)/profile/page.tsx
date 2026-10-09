@@ -18,13 +18,19 @@ import { updateProfile } from "@/services/user.service";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
-  const [name, setName] = useState(user?.name ?? "");
+  const userDisplayName = user
+    ? [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username
+    : "";
+  const [name, setName] = useState(userDisplayName);
   const [email, setEmail] = useState(user?.email ?? "");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
-      setName(user.name ?? "");
+      const displayName =
+        [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+        user.username;
+      setName(displayName);
       setEmail(user.email ?? "");
     }
   }, [user]);
@@ -40,7 +46,6 @@ export default function ProfilePage() {
       setIsSaving(true);
       await updateProfile({
         name,
-        avatar: user.avatar,
       });
       await refreshUser();
       toast.success("Profile updated successfully.");
@@ -78,11 +83,11 @@ export default function ProfilePage() {
           <CardContent className="space-y-5">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-200 text-xl font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-100">
-                {user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                {(userDisplayName || "U").charAt(0).toUpperCase()}
               </div>
               <div>
                 <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {user?.name ?? "User"}
+                  {userDisplayName || "User"}
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {user?.email ?? "member@taskflow.dev"}
@@ -92,16 +97,10 @@ export default function ProfilePage() {
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
               <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                Member since
+                Status
               </p>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {user?.createdAt
-                  ? new Date(user.createdAt).toLocaleDateString(undefined, {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : "Recently"}
+                Active member
               </p>
             </div>
           </CardContent>

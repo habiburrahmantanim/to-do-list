@@ -1,7 +1,6 @@
 import { api } from "@/services/api";
 import type {
   CreateTodoRequest,
-  PaginatedResponse,
   Todo,
   UpdateTodoRequest,
 } from "@/types/todo";
@@ -11,7 +10,7 @@ export async function getTodos(): Promise<Todo[]> {
   return data;
 }
 
-export async function getTodo(id: string): Promise<Todo> {
+export async function getTodo(id: number): Promise<Todo> {
   const { data } = await api.get<Todo>(`/api/todos/${id}/`);
   return data;
 }
@@ -22,33 +21,20 @@ export async function createTodo(payload: CreateTodoRequest): Promise<Todo> {
 }
 
 export async function updateTodo(
-  id: string,
+  id: number,
   payload: UpdateTodoRequest,
-): Promise<Todo> {
-  const { data } = await api.put<Todo>(`/api/todos/${id}/`, payload);
-  return data;
-}
-
-export async function patchTodo(
-  id: string,
-  payload: Partial<UpdateTodoRequest>,
 ): Promise<Todo> {
   const { data } = await api.patch<Todo>(`/api/todos/${id}/`, payload);
   return data;
 }
 
-export async function deleteTodo(id: string): Promise<void> {
+export async function deleteTodo(id: number): Promise<void> {
   await api.delete(`/api/todos/${id}/`);
 }
 
 export async function toggleTodo(
-  id: string,
-  completed: boolean,
+  id: number,
+  is_completed: boolean,
 ): Promise<Todo> {
-  return patchTodo(id, { completed });
-}
-
-export async function getTodosPaginated(): Promise<PaginatedResponse<Todo>> {
-  const { data } = await api.get<PaginatedResponse<Todo>>("/api/todos/");
-  return data;
+  return updateTodo(id, { is_completed });
 }

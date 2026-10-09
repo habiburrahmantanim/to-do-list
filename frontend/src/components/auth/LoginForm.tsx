@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Eye, EyeOff, Globe, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { apiBaseUrl } from "@/config/env";
+import { GoogleOAuthButton } from "@/components/auth/GoogleOAuthButton";
 import {
   Card,
   CardContent,
@@ -44,23 +44,32 @@ export function LoginForm() {
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      await login(values);
+      const identifier = values.email.trim();
+      await login({
+        username: identifier,
+        email: identifier.includes("@") ? identifier : undefined,
+        password: values.password,
+      });
       toast.success("Logged in successfully.");
       router.push("/dashboard");
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as { message?: string; fieldErrors?: Record<string, string[]> };
+      if (err?.fieldErrors) {
+        for (const [key, msgs] of Object.entries(err.fieldErrors)) {
+          if (Array.isArray(msgs) && msgs.length > 0) {
+            if (key === "username" || key === "email") {
+              setError("email", { message: msgs[0] });
+            } else if (key === "password") {
+              setError("password", { message: msgs[0] });
+            }
+          }
+        }
+      }
       const message =
         error instanceof Error ? error.message : "Unable to log in.";
       setError("root", { message });
       toast.error(message);
     }
-  };
-
-  const handleGoogleAuth = () => {
-    const googleAuthUrl = apiBaseUrl
-      ? `${apiBaseUrl.replace(/\/$/, "")}/api/auth/google/`
-      : "/api/auth/google/";
-
-    window.location.href = googleAuthUrl;
   };
 
   return (
@@ -82,12 +91,12 @@ export function LoginForm() {
               htmlFor="email"
               className="text-sm font-medium text-slate-700 dark:text-slate-200"
             >
-              Email
+              Email or Username
             </label>
             <Input
               id="email"
-              type="email"
-              autoComplete="email"
+              autoComplete="username"
+              placeholder="name@example.com or username"
               {...register("email")}
             />
             {errors.email ? (
@@ -155,15 +164,7 @@ export function LoginForm() {
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={handleGoogleAuth}
-        >
-          <Globe className="mr-2 h-4 w-4" />
-          Continue with Google
-        </Button>
+        <GoogleOAuthButton />
 
         <p className="mt-4 text-center text-sm text-slate-600 dark:text-slate-300">
           New here?{" "}

@@ -8,38 +8,32 @@ export type TodoSort =
   | "alphabetical";
 
 export interface Todo {
-  id: string;
+  id: number;
   title: string;
-  description?: string;
-  completed: boolean;
+  description: string;
+  is_completed: boolean;
   priority: TodoPriority;
-  category?: string;
-  dueDate?: string;
-  createdAt: string;
-  updatedAt: string;
-  userId: string;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface TodoFilters {
   search?: string;
   status?: TodoStatus;
   priority?: "all" | TodoPriority;
-  category?: string;
   sort?: TodoSort;
-  page?: number;
-  limit?: number;
 }
 
 export interface CreateTodoRequest {
   title: string;
   description?: string;
-  priority: TodoPriority;
-  category?: string;
-  dueDate?: string;
+  priority?: TodoPriority;
+  due_date?: string | null;
 }
 
 export interface UpdateTodoRequest extends Partial<CreateTodoRequest> {
-  completed?: boolean;
+  is_completed?: boolean;
 }
 
 export interface PaginatedResponse<T> {

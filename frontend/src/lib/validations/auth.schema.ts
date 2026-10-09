@@ -4,18 +4,28 @@ export const loginSchema = z.object({
   email: z
     .string()
     .trim()
-    .min(1, "Email is required")
-    .email("Enter a valid email address"),
+    .min(1, "Email or username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
 export const registerSchema = z
   .object({
+    username: z
+      .string()
+      .trim()
+      .max(30, "Username is too long")
+      .refine(
+        (val) => !val || (val.length >= 3 && /^[a-zA-Z0-9_]+$/.test(val)),
+        "Username must be at least 3 characters and contain only letters, numbers, and underscores",
+      )
+      .optional()
+      .or(z.literal("")),
     name: z
       .string()
       .trim()
-      .min(2, "Name must be at least 2 characters")
-      .max(100, "Name is too long"),
+      .max(100, "Name is too long")
+      .optional()
+      .or(z.literal("")),
     email: z
       .string()
       .trim()
